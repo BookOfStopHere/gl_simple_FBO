@@ -486,7 +486,7 @@ Mesh related structures
 //
 // ptr of the file contain offsets, relative to the class it belongs to
 // 
-#define RESOLVEPTR(pstruct, ptr, type) ptr = (ptr ? (type*)(((char*)pstruct) + (unsigned int)(ptr)) : NULL)
+#define RESOLVEPTR(pstruct, ptr, type) ptr = (ptr ? (type*)(((char*)pstruct) + (unsigned long long)(ptr)) : NULL)
 
 //
 // Unicode and formatting is a bit tricky...
@@ -685,7 +685,11 @@ INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, 
     fseek(fd2, 0, SEEK_END);
     fpos_t pos;
     fgetpos( fd2, &pos );
+#ifdef __USE_LARGEFILE64
+    size = 3*pos.__pos+1; //let's assume in most of the case compression is 3x
+#else
     size = 3*pos+1; //let's assume in most of the case compression is 3x
+#endif
     fclose(fd2);
 #endif
     fd = GOPEN(fname, "rb");

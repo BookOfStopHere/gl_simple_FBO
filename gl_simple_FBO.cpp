@@ -24,6 +24,7 @@
 
     feedback to tlorach@nvidia.com (Tristan Lorach)
 */ //--------------------------------------------------------------------
+#pragma GCC diagnostic warning "-fpermissive"
 #include "main.h"
 #include "WindowInertiaCamera.h"
 #include "GLSLProgram.h"
