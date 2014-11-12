@@ -460,20 +460,6 @@ Mesh related structures
     }
   };
 
-  struct MeshTest
-  {
-    Ptr64<SlotPool*> pSlots;
-    bool           boule;
-    float          visible;
-    Ptr64<PrimGroupPool*> pPrimGroups;
-  };
-  struct MeshTest2
-  {
-    _declspec(align(8)) SlotPool      *pSlots;
-    _declspec(align(8)) bool           boule;
-    _declspec(align(8)) float          visible;
-    _declspec(align(8)) PrimGroupPool *pPrimGroups;
-  };
   ///
   /// \brief Pointer relocation table
   ///

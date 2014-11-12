@@ -31,10 +31,9 @@
 
 #include "bk3dEx.h" // a baked binary format for few models
 
-#ifdef USESVCUI
-#   include "SvcMFCUI.h"
-#endif
+#include "SvCMFCUI.h"
 
+#include "nv_math_glsltypes.h"
 //-----------------------------------------------------------------------------
 // Derive the Window for this sample
 //-----------------------------------------------------------------------------

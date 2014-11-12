@@ -104,4 +104,9 @@ void flushMFCUIToggle(int key)
         g_pWinHandler->VariableFlush(it->second);
 }
 #endif
+#else
+void addToggleKeyToMFCUI(char c, bool* target, const char* desc)
+{
+  addToggleKey(c, target, desc);
+}
 #endif

@@ -60,7 +60,7 @@ struct FloatArray : public Node
 		memset((void*)this, 0, sizeof(FloatArray));
 		nodeType = NODE_FLOATARRAY;
 		version = RAWMESHVERSION;
-		strcpy_s(name, 31, "FloatArray");
+		strncpy(name, "FloatArray", 31);
 		}
 };
 
