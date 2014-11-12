@@ -244,9 +244,9 @@ static bool    s_bCameraAnim        = true;
 
 //---------------------- 3D Model ---------------------------------------------
 #ifdef NOGZLIB
-#   define MODELNAME "NV_Shaderball_v133.bk3d"
+#   define MODELNAME "NV_Shaderball_v134.bk3d"
 #else
-#   define MODELNAME "NV_Shaderball_v133.bk3d.gz"
+#   define MODELNAME "NV_Shaderball_v134.bk3d.gz"
 #endif
 bk3d::FileHeader * meshFile;
 vec3f g_posOffset = vec3f(0,0,0);
@@ -926,7 +926,7 @@ void MyWindow::renderScene()
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (GLuint)pMesh->pPrimGroups->p[pg]->userPtr);
 			    bk3d::Material *pMat = pMesh->pPrimGroups->p[pg]->pMaterial;
 			    if(pMat)// && g_bUseMaterial)
-                    g_progMesh.setUniform3f("diffuse", pMat->diffuse[0], pMat->diffuse[1], pMat->diffuse[2]);
+                    g_progMesh.setUniform3f("diffuse", pMat->MaterialData().diffuse[0], pMat->MaterialData().diffuse[1], pMat->MaterialData().diffuse[2]);
 			    else
 				    g_progMesh.setUniform3f("diffuse", 0.8, 0.8, 0.8);
 			    glDrawElements(

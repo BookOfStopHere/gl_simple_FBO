@@ -34,16 +34,25 @@
  ** v132 : relocation table change to allow file mapping on memory; IK Handle (IK DOF are done : TransformDOF)
  ** v133 : Added Absolute Quaternion transformation + absolute translation + absolute scale
  **        Added IK Handle; Added float array for blendshape weights
- ** v134 : Added Quaternion Keys
+ ** v134 : Added Quaternion Keys; made a simplified transform; rigid body + constraints + transformation info stored in tables for GPU
  **/
-#define RAWMESHVERSION 0x133
+#define RAWMESHVERSIONSTR "134"
+#define RAWMESHVERSION 0x134
 
 #pragma warning(disable: 4505)
 #pragma warning(disable: 4311)
 #pragma warning(disable: 4996)
 
 #ifndef INLINE
-#define INLINE inline
+#   define INLINE inline
+#endif
+#ifndef DBGASSERT
+#   if defined(_DEBUG) || defined(DEBUG)
+#       include <assert.h>
+#       define DBGASSERT(a) assert(a);
+#   else
+#       define DBGASSERT(a)
+#   endif
 #endif
 
 #ifndef __NVRAWMESH__
@@ -73,13 +82,16 @@ namespace bk3d
 #define NODE_MAYACURVEVECTOR  10
 #define NODE_FLOATARRAY 11
 #define NODE_MATERIAL   12
-#define NODE_DOF        13
-#define NODE_QUATCURVE  14
-#define NODE_IKHANDLE   15
-#define NODE_IKHANDLEROTATEINFLUENCE 16
-#define NODE_IKHANDLEROLLINFLUENCE   17
+#define NODE_QUATCURVE  13
+#define NODE_IKHANDLE   14
+#define NODE_IKHANDLEROTATEINFLUENCE 15
+#define NODE_IKHANDLEROLLINFLUENCE   16
+#define NODE_TRANSFORMSIMPLE  17
+#define NODE_BONE 18
+#define NODE_RIGIDBODY  19
+#define NODE_CONSTRAINT 20
 //...
-#define NODE_END        18
+#define NODE_END        21
 /// @}
 //
 // Macro to reserve 64 bits in any case : x86 or x64
@@ -113,6 +125,8 @@ struct Attribute;
 struct PrimGroup;
 struct Mesh;
 // The following strutures are the ones available if using bk3dEx.h
+struct Bone;
+struct TransformSimple;
 struct Transform;
 struct MaterialAttr;
 struct TransformDOF;
@@ -127,7 +141,34 @@ struct MayaCurvePool;
 struct QuatCurvePool;
 struct MaterialPool;
 struct IKHandlePool;
+struct RigidBodyPool;
+struct ConstraintPool;
 
+/// basic Matrix type used to group them in a single contiguous table
+  struct MatrixType {
+    float     m[16];
+    inline float & operator[](int i) { 
+        DBGASSERT((i>=0)&&(i<16));
+        return m[i]; }
+    inline float* pos() { return m + 12; }
+    inline operator float* () { return m; }
+  };
+/// basic vector 3D type
+  struct Vec3Type {
+    float x, y, z, w;
+    inline float & operator[](int i) { 
+        DBGASSERT((i>=0)&&(i<3));
+        return (&x)[i]; }
+    inline operator float* () { return (&x); }
+  };
+/// basic vector 4D type
+  struct Vec4Type {
+    float x, y, z, w;
+    inline float & operator[](int i) { 
+        DBGASSERT((i>=0)&&(i<4));
+        return (&x)[i]; }
+    inline operator float* () { return (&x); }
+  };
 /// \brief Ptr64 is a class template used to align pointers to 64 bits even when under 32 bits.
 ///
 /// The issue is that the bk3d file binaries must be compatible with 32 and 64 bits systems. Meaning that we \b need to borrow 64 bits area
@@ -163,6 +204,10 @@ struct Ptr64
     { 
         return p; 
     }
+    inline T& operator [](int i) 
+    {
+        return p[i];
+    }
     #ifdef NO64BITSCOMPAT // don't do any 32/64 bits compatibility... Doxygen will like it, for example
         T *p;            ///< the pointer that we are interested in
     #else
@@ -179,22 +224,22 @@ Bounding volumes
 /// Bounding Sphere that is supposed to encomparse the vertices of a Mesh
 struct BSphere
 {
-    float pos[3]; ///< center of the sphere
-    float radius; ///< radius
+    Vec3Type    pos; ///< center of the sphere
+    float       radius; ///< radius
 };
 /// Axis-aligned bounding box
 struct AABBox
 {
-    float min[3]; // min 3D position
-    float max[3]; // max 3D position
+    Vec3Type    min; // min 3D position
+    Vec3Type    max; // max 3D position
 };
 
 /// Pool of slots ('stream' in DX10)
 struct SlotPool //: public Node
 {
-int       n; ///< amount of slots
-int          : 32;
-  Ptr64<Slot>        p[1]; ///< array of n slots
+    int       n; ///< amount of slots
+    int          : 32;
+    Ptr64<Slot>        p[1]; ///< array of n slots
 };
 
 /// Pool of vertex attributes
@@ -278,7 +323,7 @@ Mesh related structures
 
     unsigned int        vertexCount;            ///< amount of vertices in this slot
     int                 userData;               ///< arbitrary integer user-value
-    Ptr64<void>         userPtr;                ///< arbitrary pointer for the user
+    Ptr64<int>          userPtr;                ///< arbitrary pointer for the user
 
     /// references to used attributes in this Slot. OpenGL setup essentially works with attributes, while DX10/11 works with Slots.
     /// A Slot can have 1 or more attributes. More than 1 attribute means that they are interleaved
@@ -415,6 +460,20 @@ Mesh related structures
     }
   };
 
+  struct MeshTest
+  {
+    Ptr64<SlotPool*> pSlots;
+    bool           boule;
+    float          visible;
+    Ptr64<PrimGroupPool*> pPrimGroups;
+  };
+  struct MeshTest2
+  {
+    _declspec(align(8)) SlotPool      *pSlots;
+    _declspec(align(8)) bool           boule;
+    _declspec(align(8)) float          visible;
+    _declspec(align(8)) PrimGroupPool *pPrimGroups;
+  };
   ///
   /// \brief Pointer relocation table
   ///
@@ -462,6 +521,8 @@ Mesh related structures
     PTR64(IKHandlePool      *pIKHandles);
     PTR64(RelocationTable   *pRelocationTable);
     PTR64(QuatCurvePool     *pQuatCurves);
+    PTR64(RigidBodyPool     *pRigidBodies);
+    PTR64(ConstraintPool     *pConstraints);
     // TODO:
     // Cameras    *pCameras;
     // Modifiers  *pModifiers; // Lattice...
@@ -486,7 +547,7 @@ Mesh related structures
 //
 // ptr of the file contain offsets, relative to the class it belongs to
 // 
-#define RESOLVEPTR(pstruct, ptr, type) ptr = (ptr ? (type*)(((char*)pstruct) + (unsigned long long)(ptr)) : NULL)
+#define RESOLVEPTR(pstruct, ptr, type) ptr = (ptr ? (type*)(((char*)pstruct) + (unsigned int)(ptr)) : NULL)
 
 //
 // Unicode and formatting is a bit tricky...
@@ -675,42 +736,45 @@ INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, 
     GFILE fd = NULL;
     if(!fname)
         return NULL;
-#ifndef NOGZLIB // pass to get the size of the file when using GZip fmt :-(
-    FILE *fd2 = fopen(fname, "rb");
-    if(!fd2)
-    {
-        PRINTF((TEXT("Error>> couldn't load ") FSTR TEXT("\n"), fname));
-        return NULL;
-    }
-    fseek(fd2, 0, SEEK_END);
-    fpos_t pos;
-    fgetpos( fd2, &pos );
-#ifdef __USE_LARGEFILE64
-    size = 3*pos.__pos+1; //let's assume in most of the case compression is 3x
-#else
-    size = 3*pos+1; //let's assume in most of the case compression is 3x
-#endif
-    fclose(fd2);
-#endif
+//#ifndef NOGZLIB // pass to get the size of the file when using GZip fmt :-(
+//    FILE *fd2 = fopen(fname, "rb");
+//    if(!fd2)
+//    {
+//        PRINTF((TEXT("Error>> couldn't load ") FSTR TEXT("\n"), fname));
+//        return NULL;
+//    }
+//    fseek(fd2, 0, SEEK_END);
+//    fpos_t pos;
+//    fgetpos( fd2, &pos );
+//    size = 3*pos+1; //let's assume in most of the case compression is 3x
+//    fclose(fd2);
+//#endif
     fd = GOPEN(fname, "rb");
     if(!fd)
     {
       EPRINTF((TEXT("Error : couldn't load ") FSTR TEXT("\n"), fname));
         return NULL;
     }
-#ifdef NOGZLIB
-    fseek(fd, 0, SEEK_END);
-    fpos_t pos;
-    fgetpos( fd, &pos );
-    rewind(fd);
-    size = (size_t)pos+1;
-#endif
+//#ifdef NOGZLIB
+//    fseek(fd, 0, SEEK_END);
+//    fpos_t pos;
+//    fgetpos( fd, &pos );
+//    rewind(fd);
+//    size = (size_t)pos+1;
+//#endif
     // load the Node, first
 #if 1
     int n = 0;
     unsigned int offs = sizeof(Node);
     char * memory = (char*)malloc(offs);
     n= GREAD(fd, memory, offs);
+    if(((FileHeader *)memory)->version != RAWMESHVERSION)
+    {
+      PRINTF((TEXT("Error>> Wrong version in Mesh description\n")));
+      PRINTF((TEXT("needed %x and got %x\n"), RAWMESHVERSION, ((FileHeader *)memory)->version));
+      free(memory);
+      return NULL;
+    }
     // This represents the size of the structures defining the Meshes
     unsigned int modelStructSize = ((FileHeader *)memory)->nodeByteSize;
     memory = (char*)realloc(memory, modelStructSize);
@@ -762,13 +826,6 @@ INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, 
        // free(memory);
        // return false;
     //}
-    if(((FileHeader *)memory)->version != RAWMESHVERSION)
-    {
-      PRINTF((TEXT("Error>> Wrong version in Mesh description\n")));
-      PRINTF((TEXT("needed %x and got %x\n"), RAWMESHVERSION, ((FileHeader *)memory)->version));
-      free(memory);
-      return NULL;
-    }
     ((FileHeader *)memory)->resolvePointers(memory2);
     //PRINTF((TEXT("Loaded ") FSTR TEXT(" (mesh version %x)\n"), fname, ((FileHeader *)memory)->version));
     return (FileHeader *)memory;
@@ -778,7 +835,7 @@ INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, 
 // level : 0 for brief; 1 for all; 2 for all including attributes and index tables (!)
 extern float* FileHeader_findComponentf(FileHeader *pH, const char *compname, bool **pDirty);
 extern void FileHeader_debugDumpAll(FileHeader* pH, int level, const char * nodeNameFilter);
-extern void Transform_debugDumpLayout(Transform*pT, int l, int level, const char * nodeNameFilter);
+extern void Transform_debugDumpLayout(Bone*pT, int l, int level, const char * nodeNameFilter);
 extern void Mesh_debugDumpLayout(Mesh *pM, unsigned int &nVtx, unsigned int &nElts, unsigned int &nPrims, int level, const char * nodeNameFilter);
 
 
