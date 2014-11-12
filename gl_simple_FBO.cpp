@@ -220,6 +220,28 @@ enum BlitMode {
 };
 BlitMode blitMode;
 
+//
+// Camera animation: captured using '1' in the sample. Then copy and paste...
+//
+struct CameraAnim {    vec3f eye, focus; };
+static CameraAnim s_cameraAnim[] = {
+{vec3f(0.03, 0.58, -1.53), vec3f(0.05, 0.06, 0.02)},
+{vec3f(-1.38, 0.39, -0.68), vec3f(0.05, 0.06, 0.02)},
+{vec3f(-1.33, 0.56, 0.73), vec3f(0.05, 0.06, 0.02)},
+{vec3f(0.10, 0.76, 1.50), vec3f(0.05, 0.06, 0.02)},
+{vec3f(2.49, 1.51, -0.19), vec3f(0.54, 0.13, 0.26)},
+{vec3f(1.26, 1.82, -2.57), vec3f(0.17, 0.19, -1.16)},
+{vec3f(0.60, 1.12, -3.34), vec3f(0.17, 0.19, -1.16)},
+{vec3f(-0.02, 0.11, -0.69), vec3f(0.04, -0.04, 0.17)},
+{vec3f(-0.05, 0.27, -1.66), vec3f(0.04, -0.04, 0.17)}, // 9 items
+};
+static int     s_cameraAnimItem     = 0;
+static int     s_cameraAnimItems    = 9;
+#define ANIMINTERVALL 1.5f
+static float   s_cameraAnimIntervals= ANIMINTERVALL;
+static bool    s_bCameraAnim        = true;
+
+
 //---------------------- 3D Model ---------------------------------------------
 #ifdef NOGZLIB
 #   define MODELNAME "NV_Shaderball_v133.bk3d"
@@ -233,7 +255,7 @@ float g_scale = 1.0f;
 //------------------------------------------------------------------------------
 // 
 //------------------------------------------------------------------------------
-void printMessage(int level, const char * txt)
+void sample_print(int level, const char * txt)
 {
 #ifdef USESVCUI
     logMFCUI(level, txt);
@@ -635,12 +657,7 @@ bool MyWindow::init()
 #ifdef USESVCUI
     initMFCUIBase(0, m_winSz[1]+40, m_winSz[0], 150);
 #endif
-    //
-    // easy Toggles
-    //
-    addToggleKey(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering\n");
 #ifdef USESVCUI
-    addToggleKeyToMFCUI(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering\n");
 
     IControlCombo* pCombo = g_pWinHandler->CreateCtrlCombo("FBOMode", "FBO Mode", g_pToggleContainer);
     pCombo->AddItem("Render to Texture MS.", (size_t)RENDERTOTEXMS);
@@ -657,6 +674,11 @@ bool MyWindow::init()
     g_pToggleContainer->UnFold();
 
 #endif
+    //
+    // easy Toggles
+    //
+    addToggleKeyToMFCUI(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering\n");
+    addToggleKeyToMFCUI('a', &s_bCameraAnim, "'a': animate camera\n");
     //
     // Shader compilation
     //
@@ -922,6 +944,23 @@ void MyWindow::renderScene()
 void MyWindow::display()
 {
     NXPROFILEFUNC(__FUNCTION__);
+    WindowInertiaCamera::display();
+    //
+    // Simple camera change for animation
+    //
+    if(s_bCameraAnim)
+    {
+      float dt = (float)m_realtime.getTiming();
+      s_cameraAnimIntervals -= dt;
+      if(s_cameraAnimIntervals <= 0.0)
+      {
+          s_cameraAnimIntervals = ANIMINTERVALL;
+          m_camera.look_at(s_cameraAnim[s_cameraAnimItem].eye, s_cameraAnim[s_cameraAnimItem].focus);
+          s_cameraAnimItem++;
+          if(s_cameraAnimItem >= s_cameraAnimItems)
+              s_cameraAnimItem = 0;
+      }
+    }
 
     GLuint fbo;
     switch(fboMode)
@@ -1010,7 +1049,7 @@ void MyWindow::display()
 
     ///////////////////////////////////////////////
     // additional HUD stuff
-	WindowInertiaCamera::display();
+	WindowInertiaCamera::displayHUD();
 
     swapBuffers();
 }
