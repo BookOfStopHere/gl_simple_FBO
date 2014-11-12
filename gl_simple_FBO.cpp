@@ -725,7 +725,8 @@ bool MyWindow::init()
     if(!(meshFile = bk3d::load(MODELNAME)))
         if(!(meshFile = bk3d::load("../../" PROJECT_NAME "/" MODELNAME)))
             if(!(meshFile = bk3d::load("../resources/" MODELNAME)))
-                meshFile = bk3d::load(RESOURCE_DIRECTORY MODELNAME);
+                if(!(meshFile = bk3d::load(PROJECT_PATH MODELNAME)))
+                    meshFile = bk3d::load(RESOURCE_DIRECTORY MODELNAME);
     if(meshFile)
     {
         // create VBOs
