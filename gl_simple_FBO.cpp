@@ -26,14 +26,14 @@
 */ //--------------------------------------------------------------------
 #pragma GCC diagnostic warning "-fpermissive"
 #include "main.h"
-#include "WindowInertiaCamera.h"
-#include "GLSLProgram.h"
+#include "nv_helpers_gl/WindowInertiaCamera.h"
+#include "nv_helpers_gl/GLSLProgram.h"
 
 #include "bk3dEx.h" // a baked binary format for few models
 
 #include "SvCMFCUI.h"
 
-#include "nv_math_glsltypes.h"
+#include "nv_math/nv_math_glsltypes.h"
 //-----------------------------------------------------------------------------
 // Derive the Window for this sample
 //-----------------------------------------------------------------------------
@@ -722,10 +722,8 @@ bool MyWindow::init()
     //
     LOGI("Loading Mesh..." MODELNAME "\n");
     if(!(meshFile = bk3d::load(MODELNAME)))
-        if(!(meshFile = bk3d::load("../../" PROJECT_NAME "/" MODELNAME)))
-            if(!(meshFile = bk3d::load("../resources/" MODELNAME)))
-                if(!(meshFile = bk3d::load(PROJECT_PATH MODELNAME)))
-                    meshFile = bk3d::load(RESOURCE_DIRECTORY MODELNAME);
+        if(!(meshFile = bk3d::load(PROJECT_RELDIRECTORY MODELNAME)))
+            if(!(meshFile = bk3d::load(PROJECT_ABSDIRECTORY MODELNAME)))
     if(meshFile)
     {
         // create VBOs
@@ -1066,6 +1064,8 @@ int sample_main(int argc, const char** argv)
     3,      //minor;
     true,   //core;
     8,      //MSAA;
+    24,     //depth bits
+    8,      //stencil bits
     true,   //debug;
     false,  //robust;
     false,  //forward;
