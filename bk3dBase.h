@@ -717,39 +717,29 @@ INLINE void FileHeader::restorePointerOffsets(void* pBufferArea)
 //--------------------------------
 INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, unsigned int* bufferMemorySz=NULL)
 {
-#   define RAWMESHMINSZ (1024*1000)
-    unsigned int size = RAWMESHMINSZ;
     GFILE fd = NULL;
     if(!fname)
         return NULL;
-//#ifndef NOGZLIB // pass to get the size of the file when using GZip fmt :-(
-//    FILE *fd2 = fopen(fname, "rb");
-//    if(!fd2)
-//    {
-//        PRINTF((TEXT("Error>> couldn't load ") FSTR TEXT("\n"), fname));
-//        return NULL;
-//    }
-//    fseek(fd2, 0, SEEK_END);
-//    fpos_t pos;
-//    fgetpos( fd2, &pos );
-//    size = 3*pos+1; //let's assume in most of the case compression is 3x
-//    fclose(fd2);
-//#endif
     fd = GOPEN(fname, "rb");
     if(!fd)
     {
       EPRINTF((TEXT("Error : couldn't load ") FSTR TEXT("\n"), fname));
         return NULL;
     }
-//#ifdef NOGZLIB
-//    fseek(fd, 0, SEEK_END);
-//    fpos_t pos;
-//    fgetpos( fd, &pos );
-//    rewind(fd);
-//    size = (size_t)pos+1;
-//#endif
+	unsigned long realsize = 0;
+#ifdef NOGZLIB
+    fseek(fd, 0, SEEK_END);
+	realsize = ftell(file);
+    fseek(fd, 0, SEEK_SET);
+#else
+	FILE *file = fopen(fname,"rb");
+    fseek(file, 0, SEEK_END);
+	realsize = ftell(file);
+    fseek(file, realsize-4, SEEK_SET);
+	fread(&realsize, 4, 1, file);
+	fclose(file);
+#endif
     // load the Node, first
-#if 1
     int n = 0;
     unsigned int offs = sizeof(Node);
     char * memory = (char*)malloc(offs);
@@ -766,52 +756,14 @@ INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, 
     memory = (char*)realloc(memory, modelStructSize);
     n= GREAD(fd, memory + offs, modelStructSize - offs);
     // Now anything beyond this is Buffer Memory : vertex tables etc.
-    char *memory2 = (char*)malloc(size);
-    offs = 0;
-    n= GREAD(fd, memory2, size);
-    int N = n;
-    do {
-      if(n > 0)
-      {
-          offs += size;
-          memory2 = (char*)realloc(memory2, size + offs);
-      }
-      n= GREAD(fd, memory2 + offs, size);
-      N += n;
-    } while(n == size);
+    char *memory2 = (char*)malloc(realsize - modelStructSize);
+    n= GREAD(fd, memory2, realsize - modelStructSize);
     if(bufferMemorySz)
-        *bufferMemorySz = N;
+        *bufferMemorySz = n;
     if(pBufferMemory)
         *pBufferMemory = memory2;
-#else
-    int n = 0;
-    size_t offs = 0;
-    char * memory = (char*)malloc(size);
-    n= GREAD(fd, memory, size);
-    do {
-      if(n > 0)
-      {
-          offs += size;
-          memory = (char*)realloc(memory, size + offs);
-      }
-      if(fd)
-        n= GREAD(fd, memory + offs, size);
-    } while(n == size);
-    memset(memory + offs + n, 0, sizeof(Node));
-    /*if(n > 0)
-    {
-      offs -= RAWMESHMINSZ-n-4;
-      memory = (char*)realloc(memory, RAWMESHMINSZ + offs);
-    }*/
-#endif
     if(fd)
         GCLOSE(fd);
-    //if(strncmp((char*)&((FileHeader *)memory)->magic, "MESH", 4))
-    //{
-    //  EPRINTF((TEXT("Error : Not a mesh file\n")));
-       // free(memory);
-       // return false;
-    //}
     ((FileHeader *)memory)->resolvePointers(memory2);
     //PRINTF((TEXT("Loaded ") FSTR TEXT(" (mesh version %x)\n"), fname, ((FileHeader *)memory)->version));
     return (FileHeader *)memory;
