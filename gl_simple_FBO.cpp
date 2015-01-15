@@ -723,7 +723,7 @@ bool MyWindow::init()
     LOGI("Loading Mesh..." MODELNAME "\n");
     if(!(meshFile = bk3d::load(MODELNAME)))
         if(!(meshFile = bk3d::load(PROJECT_RELDIRECTORY MODELNAME)))
-            if(!(meshFile = bk3d::load(PROJECT_ABSDIRECTORY MODELNAME)))
+            meshFile = bk3d::load(PROJECT_ABSDIRECTORY MODELNAME);
     if(meshFile)
     {
         // create VBOs
