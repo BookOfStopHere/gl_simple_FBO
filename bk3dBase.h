@@ -633,14 +633,14 @@ INLINE void FileHeader::resolvePointers(void* pBufferArea)
             ptr = (char*)pBufferArea + offs - nodeByteSize;
         else
             ptr += offs;
-        unsigned LONG *ptr2 = (unsigned LONG *)ptr;
+        unsigned long long *ptr2 = (unsigned long long *)ptr;
         if(*ptr2)
         {
-            unsigned LONG o = pRelocationTable->pRelocationOffsets[i].offset;
+            unsigned long long o = pRelocationTable->pRelocationOffsets[i].offset;
             if(o >= nodeByteSize)
-                *ptr2 = (unsigned LONG)(((char*)pBufferArea) + o - nodeByteSize);
+                *ptr2 = (unsigned long long)(((char*)pBufferArea) + o - nodeByteSize);
             else
-            *ptr2 = (unsigned LONG)(((char*)this) + o);
+            *ptr2 = (unsigned long long)(((char*)this) + o);
         }
     }
 }
