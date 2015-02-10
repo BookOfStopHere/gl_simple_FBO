@@ -941,6 +941,8 @@ void MyWindow::renderScene()
 
 void MyWindow::display()
 {
+    if(!m_validated)
+        return;
     NXPROFILEFUNC(__FUNCTION__);
     WindowInertiaCamera::display();
     //
