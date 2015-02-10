@@ -233,7 +233,7 @@ struct QuatCurve : public Node
 	float	fOut;		///< result
 	// KEYS
 	int		nKeys   : 32;
-	int				: 32;
+	int		userData: 32;
 
 	QuatReadKey key[1]; ///< array of keys
 };
@@ -372,6 +372,7 @@ This contains all the tranformations and children/parent infos
   struct IKHandleData
   {
     int priority;
+    int maxIter;
     float weight;
 
     // Removed: instead we use the posBoneTail of the first transformation in the IK chain
@@ -398,8 +399,8 @@ This contains all the tranformations and children/parent infos
   {
     DOF_CONE = 0,
     DOF_SINGLE_AXIS_X = 1,
-    DOF_SINGLE_AXIS_Y = 2,
-    DOF_SINGLE_AXIS_Z = 3,
+    //DOF_SINGLE_AXIS_Y = 2, Not necessary: X is enough
+    //DOF_SINGLE_AXIS_Z = 3,
     DOF_TWIST_ALONG_BONE = 4,
     DOF_UNDEF = 0xFFFFFFFF
   };
@@ -435,11 +436,21 @@ This contains all the tranformations and children/parent infos
     inline Vec4Type&     QuatAbs()                     { return abs_Quat; }
     inline Vec4Type&     Quat()                        { return quat; }
   };
-  /// Pool of transformations
+  /// Pool of transformations.
+  /// The transformations gather as well regular Bones, but also IKHandles, Physic Bodies and Physic constraints
+  /// this done so that we have the whole tree structure in one array no matter the kind of transformations
+  /// Now, most of the time transformation update for basic animation might only require to update
+  /// regular transforms, while rigid bodies, constraints and IK handles can be skipped.
+  /// taking the min of of offsetIKHandles, offsetRigidBodies and offsetConstraints would help.
+  /// NOTE: this assumes that the builder ALWAYS added these 3 types AT THE END
   struct TransformPool
   {
-	int       nBones : 32;
-	int       offsetIKHandles : 32; ///< tell where is the first transformation that is an effector. tableIKHandleData must be accessed with (TransformID - offsetIKHandles)
+	int       nBones            : 32;
+	int       offsetIKHandles   : 32; ///< tell where is the first transformation that is an effector. tableIKHandleData must be accessed with (TransformID - offsetIKHandles)
+
+    //int       offsetRigidBodies : 32; ///< tell where is the first rigid body
+	//int       offsetConstraints : 32; ///< tell where is the first constraint
+
     // structure of arrays, pointing to tables that are the components of transforms
     // that way data are ready to be sent to the GPU if needed
     // some could be NULL if not needed anywhere (tableMayaTransformData, for example)
@@ -460,6 +471,8 @@ This contains all the tranformations and children/parent infos
     /// [weights and transform ID] lists. [(N,0), (transfID, weight), (transfID, weight), ..., (N,0),...]
     /// Why done this way ? Because it will be convenient to send this whole table at once to the GPU for fast processing
     Ptr64<EffectorTransformAndWeight> tableEffectorWeights;
+    // NOTE: we could add 2 more tables for bodies and constraints. But this is only interesting for GPU processing... later ?
+
     // Now, the table of transforms is not meant to be passed to the GPU
     // it is just a convenient way to access to the transform nodes containing a bit more, such as transform name etc.
 	Ptr64<Bone> pBones[1];    						///< transforms referenced by pointers
@@ -536,7 +549,7 @@ This contains all the tranformations and children/parent infos
       inline BoneDataType& BoneData()                    { return parentPool->tableBoneData.p[ID]; }
       inline unsigned int& ValidComps()                  { return BoneData().validComps; }
       inline bool          getDirty()                       { return BoneData().bDirty; }
-      inline void          setDirty(bool b)                 { bDirty = b; }
+      inline void          setDirty(bool b)                 { BoneData().bDirty = b; }
       inline MatrixType&   Matrix()                      { return BoneData().matrix; }
       inline MatrixType&   MatrixAbs()                   { return parentPool->tableMatrixAbs.p[ID]; }
       inline MatrixType&   MatrixAbsInvBindposeMatrix()  { return parentPool->tableMatrixAbsInvBindposeMatrix[ID]; }
@@ -646,14 +659,15 @@ struct IKHandlePool
 /// \remark Maya defines IK with 2 special parts : Effector and Handle
 /// Both can have their own transforms with all the related properties : Pivots, rotations, pos etc.
 /// The Handle class is a way to simplify things:
-/// - the transformation is deferred to the parent transformation of the Handle
+/// - the transformation inherits from 'Bone'
 /// - the End-effector that is supposed to reach the handle is the posBoneTail of the first pEffectorTransforms
-/// There are 2 ways of using Handles:
+/// There are 3 ways of using Handles:
 /// - common way (NODE_IKHANDLE): the Handle position is the target to reach
 /// - Roll (NODE_IKHANDLEROLLINFLUENCE): the handle is used to spread the rotation of handleTransform to pEffectorTransforms around bone tails
 ///   for example is can be usefule for wrist or arm layers for skinning
 /// - rotation (NODE_IKHANDLEROTATEINFLUENCE): for the case where we want some transforms to copy values from the Handle's transform (handleTransform)
 ///   It can be useful for eyes control etc
+/// I agree... the last 2 ones are NOT IK. But it was simpler to put them all in one
 ///
 struct IKHandle : public Bone
 {
@@ -676,6 +690,7 @@ struct IKHandle : public Bone
     inline IKHandleData&    IKHandleData() { return *pIKHandleData; }
     inline int&             Priority()     { return pIKHandleData->priority; }
     inline float&           Weight()       { return pIKHandleData->weight; }
+    inline int&             MaxIter()       { return pIKHandleData->maxIter; }
     inline float&           EffectorWeight(int n)    { return pEffectorWeights->f[n]; }
     inline int              getNumEffectors() { return pEffectorTransforms ? pEffectorTransforms->n : 0; }
     inline Bone*            getEffectorTransform(int n) { return pEffectorTransforms->p[n]; }
@@ -683,6 +698,7 @@ struct IKHandle : public Bone
     inline IKHandleData&    IKHandleData() { return parentPool->tableIKHandleData.p[ID - parentPool->offsetIKHandles]; }
     inline int&             Priority()     { return IKHandleData().priority; }
     inline float&           Weight()       { return IKHandleData().weight; }
+    inline int&             MaxIter()      { return IKHandleData().maxIter; }
     inline float&           EffectorWeight(int n)    { return parentPool->tableEffectorWeights[IKHandleData().effectorWeightAndTransformListID+1+n].weight; }
     inline int              getNumEffectors() { return IKHandleData().numEffectors; }
     inline Bone*            getEffectorTransform(int n) { return parentPool->pBones[parentPool->tableEffectorWeights[IKHandleData().effectorWeightAndTransformListID+1+n].transformID]; }
@@ -949,7 +965,7 @@ INLINE float* findComponentf(FileHeader *pH, const char *compname, unsigned char
 /// Helper to find some components.
 /// This one requires a name and a component value from TRANSFCOMP_xxx (see above)
 //------------------------------------------------------------------------------------------
-INLINE float* findComponentf(FileHeader *pH, const char *name, unsigned int component, unsigned char **pDirty)
+INLINE float* findComponentf(FileHeader *pH, const char *name, unsigned int component, unsigned char **pDirty, Bone** ppBone=NULL)
 {
     float *pComp = NULL;
     //search in transforms
@@ -958,6 +974,7 @@ INLINE float* findComponentf(FileHeader *pH, const char *name, unsigned int comp
         Bone *pt = pH->pTransforms->pBones[i];
         if(strcmp(pt->name, name))
             continue;
+        if(ppBone) *ppBone = pt;
         if(pDirty) *pDirty = &(pt->BoneData().bDirty);
         switch(component)
         {

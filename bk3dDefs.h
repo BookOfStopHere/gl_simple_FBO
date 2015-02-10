@@ -391,6 +391,7 @@ enum OGL_PATCH_VERTICES
 #define MESH_BLIND3          "blind3"
 #define MESH_BONESOFFSETS    "bonesoffsets"
 #define MESH_BONESWEIGHTS    "bonesweights"
+#define MESH_2BONES2WEIGHTS  "2Bones2Weights"
 /// @}
 
 #endif //__BK3DDEFS__
