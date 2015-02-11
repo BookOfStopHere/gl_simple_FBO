@@ -535,7 +535,7 @@ Mesh related structures
 //
 // ptr of the file contain offsets, relative to the class it belongs to
 // 
-#define RESOLVEPTR(pstruct, ptr, type) ptr = (ptr ? (type*)(((char*)pstruct) + (unsigned int)(ptr)) : NULL)
+#define RESOLVEPTR(pstruct, ptr, type) ptr = (ptr ? (type*)(((char*)pstruct) + (unsigned long)(ptr)) : NULL)
 
 //
 // Unicode and formatting is a bit tricky...

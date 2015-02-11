@@ -27,6 +27,8 @@
     This file is for the optional UI using SvcMFCUI.dll
     
 */ //--------------------------------------------------------------------
+#ifndef __svcmfcui_h__
+#define __svcmfcui_h__
 #ifdef USESVCUI
 #include "ISvcUI.h"
 #ifdef EXTERNSVCUI
@@ -49,7 +51,7 @@ IWindowLog*         g_pLog          = NULL;
 IProgressBar*       g_pProgress     = NULL;
 
 IWindowFolding*   g_pToggleContainer = NULL;
-void addToggleKeyToMFCUI(char c, bool* target, const char* desc)
+inline void addToggleKeyToMFCUI(char c, bool* target, const char* desc)
 {
     if(!g_pToggleContainer)
         return;
@@ -58,7 +60,7 @@ void addToggleKeyToMFCUI(char c, bool* target, const char* desc)
     g_pToggleContainer->UnFold();
 }
 
-void shutdownMFCUI()
+inline void shutdownMFCUI()
 {
     g_pConsole = NULL;
     g_pLog = NULL;
@@ -69,7 +71,7 @@ void shutdownMFCUI()
 //------------------------------------------------------------------------------
 // Setup the base layout of the UI
 // the rest can be done outside, depending on the sample's needs
-void initMFCUIBase(int x=0, int y=600, int w=400, int h=100)
+inline void initMFCUIBase(int x=0, int y=600, int w=400, int h=100)
 {
     UISERVICE_LOAD(g_pFactUI, g_pWinHandler);
     if(g_pWinHandler)
@@ -90,14 +92,14 @@ void initMFCUIBase(int x=0, int y=600, int w=400, int h=100)
     }
 }
 
-void logMFCUI(int level, const char * txt)
+inline void logMFCUI(int level, const char * txt)
 {
    if(g_pLog)
         g_pLog->AddMessage(level, txt);
 }
 
 extern std::map<char, bool*>    g_toggleMap;
-void flushMFCUIToggle(int key)
+inline void flushMFCUIToggle(int key)
 {
     std::map<char, bool*>::iterator it = g_toggleMap.find(key);
     if(it != g_toggleMap.end())
@@ -105,8 +107,10 @@ void flushMFCUIToggle(int key)
 }
 #endif
 #else
-void addToggleKeyToMFCUI(char c, bool* target, const char* desc)
+inline void addToggleKeyToMFCUI(char c, bool* target, const char* desc)
 {
   addToggleKey(c, target, desc);
 }
 #endif
+
+#endif //__svcmfcui_h__
