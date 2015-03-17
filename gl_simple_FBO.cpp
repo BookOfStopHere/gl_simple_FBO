@@ -1080,6 +1080,8 @@ int sample_main(int argc, const char** argv)
     myWindow.makeContextCurrent();
     myWindow.swapInterval(0);
 
+	myWindow.reshape(myWindow.getWidth(), myWindow.getHeight());
+
     while(MyWindow::sysPollEvents(false) )
     {
         myWindow.idle();
