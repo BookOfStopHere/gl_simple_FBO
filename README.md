@@ -1,6 +1,6 @@
 # gl_simple_FBO
 
-TODO: write some guidance about this repo and how to use it
+This sample shows a very simple implementation of OpenGL Frame-buffer object (FBO)
 
 ![Example](https://github.com/nvpro-samples/gl_simple_FBO/raw/master/example/example.png)
 
